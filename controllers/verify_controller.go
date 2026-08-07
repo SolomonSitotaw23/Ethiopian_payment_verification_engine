@@ -6,10 +6,10 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/abrhamyalew/telebirr-payment-verifier/models"
-	"github.com/abrhamyalew/telebirr-payment-verifier/providers"
-	"github.com/abrhamyalew/telebirr-payment-verifier/services"
-	"github.com/abrhamyalew/telebirr-payment-verifier/utils"
+	"payment_verifier/models"
+	"payment_verifier/providers"
+	"payment_verifier/services"
+	"payment_verifier/utils"
 )
 
 func VerifyHandler(c *gin.Context) {

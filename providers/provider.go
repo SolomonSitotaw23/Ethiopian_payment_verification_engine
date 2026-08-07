@@ -6,9 +6,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/abrhamyalew/telebirr-payment-verifier/models"
-	"github.com/abrhamyalew/telebirr-payment-verifier/services"
-	"github.com/abrhamyalew/telebirr-payment-verifier/utils"
+	"payment_verifier/models"
+	"payment_verifier/services"
+	"payment_verifier/utils"
 )
 
 type Provider interface {

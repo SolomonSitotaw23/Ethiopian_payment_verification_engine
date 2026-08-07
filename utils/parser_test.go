@@ -3,7 +3,7 @@ package utils_test
 import (
 	"testing"
 
-	"github.com/abrhamyalew/telebirr-payment-verifier/utils"
+	"payment_verifier/utils"
 )
 
 func TestTelebirrParser(t *testing.T) {

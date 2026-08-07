@@ -6,10 +6,10 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/abrhamyalew/telebirr-payment-verifier/config"
-	"github.com/abrhamyalew/telebirr-payment-verifier/models"
-	"github.com/abrhamyalew/telebirr-payment-verifier/providers"
-	"github.com/abrhamyalew/telebirr-payment-verifier/services"
+	"payment_verifier/config"
+	"payment_verifier/models"
+	"payment_verifier/providers"
+	"payment_verifier/services"
 )
 
 type AsyncBatchResponse struct {

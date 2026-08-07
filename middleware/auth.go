@@ -6,7 +6,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/abrhamyalew/telebirr-payment-verifier/models"
+	"payment_verifier/models"
 )
 
 func APIKeyAuth() gin.HandlerFunc {

@@ -6,9 +6,9 @@ import (
 	"os"
 
 	"github.com/gin-gonic/gin"
-	"github.com/abrhamyalew/telebirr-payment-verifier/config"
-	"github.com/abrhamyalew/telebirr-payment-verifier/controllers"
-	"github.com/abrhamyalew/telebirr-payment-verifier/middleware"
+	"payment_verifier/config"
+	"payment_verifier/controllers"
+	"payment_verifier/middleware"
 )
 
 func CORSMiddleware() gin.HandlerFunc {

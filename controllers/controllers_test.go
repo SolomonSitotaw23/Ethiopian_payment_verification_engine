@@ -8,7 +8,7 @@ import (
 	"testing"
 
 	"github.com/gin-gonic/gin"
-	"github.com/abrhamyalew/telebirr-payment-verifier/controllers"
+	"payment_verifier/controllers"
 )
 
 func setupTestRouter() *gin.Engine {

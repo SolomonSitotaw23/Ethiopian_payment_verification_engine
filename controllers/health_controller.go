@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/abrhamyalew/telebirr-payment-verifier/services"
+	"payment_verifier/services"
 )
 
 type HealthResponse struct {

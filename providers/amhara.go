@@ -4,10 +4,10 @@ import (
 	"context"
 	"strings"
 
-	"github.com/abrhamyalew/telebirr-payment-verifier/models"
-	"github.com/abrhamyalew/telebirr-payment-verifier/services"
-	"github.com/abrhamyalew/telebirr-payment-verifier/utils"
-	"github.com/abrhamyalew/telebirr-payment-verifier/validators"
+	"payment_verifier/models"
+	"payment_verifier/services"
+	"payment_verifier/utils"
+	"payment_verifier/validators"
 )
 
 type AmharaProvider struct{}

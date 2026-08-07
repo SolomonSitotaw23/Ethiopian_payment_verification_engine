@@ -7,10 +7,10 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/abrhamyalew/telebirr-payment-verifier/config"
-	"github.com/abrhamyalew/telebirr-payment-verifier/models"
-	"github.com/abrhamyalew/telebirr-payment-verifier/services"
-	"github.com/abrhamyalew/telebirr-payment-verifier/utils"
+	"payment_verifier/config"
+	"payment_verifier/models"
+	"payment_verifier/services"
+	"payment_verifier/utils"
 	"github.com/ledongthuc/pdf"
 )
 

@@ -1,7 +1,5 @@
 # Ethiopian Payment Receipt Verifier (Golang)
 
-[![CI Workflow](https://github.com/abrhamyalew/telebirr-payment-verifier/actions/workflows/ci.yml/badge.svg)](https://github.com/abrhamyalew/telebirr-payment-verifier/actions)
-[![Go Version](https://img.shields.io/github/go-mod/go-version/abrhamyalew/telebirr-payment-verifier)](https://golang.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 An enterprise-grade, high-performance Go service to verify payment receipts from **Telebirr**, **CBE (Commercial Bank of Ethiopia)**, **BOA (Bank of Abyssinia)**, and **Amhara Bank** against expected transaction details.
@@ -38,8 +36,8 @@ Built with **Gin**, native Go goroutine worker pools, structured logging, rate l
 ### Clone & Setup
 
 ```bash
-git clone https://github.com/abrhamyalew/telebirr-payment-verifier.git
-cd telebirr-payment-verifier
+git clone <your-repository-url>
+cd payment_verifier
 cp .env.example .env
 go mod download
 ```

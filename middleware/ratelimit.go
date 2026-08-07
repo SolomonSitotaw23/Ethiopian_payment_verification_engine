@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/abrhamyalew/telebirr-payment-verifier/models"
+	"payment_verifier/models"
 )
 
 type ipLimiter struct {

@@ -12,7 +12,7 @@ test:
 	go test -v -cover ./...
 
 clean:
-	rm -f $(APP_NAME) telebirr-payment-verifier
+	rm -f $(APP_NAME)
 
 docker-build:
 	docker build -t payment-verifier-go .

@@ -3,7 +3,7 @@ package providers_test
 import (
 	"testing"
 
-	"github.com/abrhamyalew/telebirr-payment-verifier/providers"
+	"payment_verifier/providers"
 )
 
 func TestProviderRegistry(t *testing.T) {

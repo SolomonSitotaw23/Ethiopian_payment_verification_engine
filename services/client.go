@@ -11,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/abrhamyalew/telebirr-payment-verifier/utils"
+	"payment_verifier/utils"
 )
 
 var (

@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"regexp"
 
-	"github.com/abrhamyalew/telebirr-payment-verifier/models"
-	"github.com/abrhamyalew/telebirr-payment-verifier/utils"
+	"payment_verifier/models"
+	"payment_verifier/utils"
 )
 
 type ReceiptRequestOptions struct {

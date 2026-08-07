@@ -3,8 +3,8 @@ package services
 import (
 	"sync"
 
-	"github.com/abrhamyalew/telebirr-payment-verifier/config"
-	"github.com/abrhamyalew/telebirr-payment-verifier/models"
+	"payment_verifier/config"
+	"payment_verifier/models"
 )
 
 type BatchItemProcessor func(item string) (string, error)

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/abrhamyalew/telebirr-payment-verifier/config"
-	"github.com/abrhamyalew/telebirr-payment-verifier/models"
-	"github.com/abrhamyalew/telebirr-payment-verifier/utils"
+	"payment_verifier/config"
+	"payment_verifier/models"
+	"payment_verifier/utils"
 )
 
 func VerifyAmharaBank(parsedData *models.AmharaBankParsedData, flags models.VerificationFlags) (bool, error) {

@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/abrhamyalew/telebirr-payment-verifier/models"
+	"payment_verifier/models"
 )
 
 func SendWebhookCallback(callbackURL string, data models.BatchVerifyResponse) {

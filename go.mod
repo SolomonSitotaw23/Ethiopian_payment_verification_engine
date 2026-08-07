@@ -1,4 +1,4 @@
-module github.com/abrhamyalew/telebirr-payment-verifier
+module payment_verifier
 
 go 1.26.5
 
