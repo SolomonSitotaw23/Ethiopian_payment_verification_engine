@@ -19,3 +19,9 @@ docker-build:
 
 docker-run:
 	docker run -p 5000:5000 --env-file .env payment-verifier-go
+
+web-dev:
+	cd web && npm run dev
+
+web-build:
+	cd web && npm run build
