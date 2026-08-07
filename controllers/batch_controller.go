@@ -29,7 +29,7 @@ func BatchVerifyHandler(c *gin.Context) {
 	ctx := c.Request.Context()
 
 	processor := func(item string) (*models.DetailedVerifyResponse, error) {
-		res, err := providers.DefaultRegistry.VerifyReceipt(ctx, item, body.Expected, body.DefaultVerification, services.ReceiptRequestOptions{Proxy: useProxy})
+		res, err := providers.DefaultRegistry.VerifyReceipt(ctx, item, body.Provider, body.Expected, body.DefaultVerification, services.ReceiptRequestOptions{Proxy: useProxy})
 		if err != nil {
 			services.Metrics.RecordVerification(false)
 			return nil, err

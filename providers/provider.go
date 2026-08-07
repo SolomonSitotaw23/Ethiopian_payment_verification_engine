@@ -37,11 +37,26 @@ func (r *ProviderRegistry) Register(p Provider) {
 	r.providers = append(r.providers, p)
 }
 
-func (r *ProviderRegistry) FindProvider(input string) (Provider, string) {
+func (r *ProviderRegistry) FindProvider(input string, explicitProvider string) (Provider, string) {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
 
 	trimmed := strings.TrimSpace(input)
+	exp := strings.ToLower(strings.TrimSpace(explicitProvider))
+
+	if exp != "" && exp != "auto" {
+		for _, p := range r.providers {
+			pName := strings.ToLower(p.Name())
+			if pName == exp || strings.Contains(pName, exp) {
+				id := p.ParseID(trimmed)
+				if id == "" {
+					id = trimmed
+				}
+				return p, id
+			}
+		}
+	}
+
 	for _, p := range r.providers {
 		if p.CanHandle(trimmed) {
 			id := p.ParseID(trimmed)
@@ -53,8 +68,8 @@ func (r *ProviderRegistry) FindProvider(input string) (Provider, string) {
 	return nil, ""
 }
 
-func (r *ProviderRegistry) VerifyReceipt(ctx context.Context, input string, reqExpected *models.ExpectedDataRequest, flags models.VerificationFlags, opts services.ReceiptRequestOptions) (*models.DetailedVerifyResponse, error) {
-	provider, id := r.FindProvider(input)
+func (r *ProviderRegistry) VerifyReceipt(ctx context.Context, input string, explicitProvider string, reqExpected *models.ExpectedDataRequest, flags models.VerificationFlags, opts services.ReceiptRequestOptions) (*models.DetailedVerifyResponse, error) {
+	provider, id := r.FindProvider(input, explicitProvider)
 	if provider == nil || id == "" {
 		return nil, utils.NewValidationError(fmt.Sprintf("receipt '%s' is NOT a valid receipt", input))
 	}

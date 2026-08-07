@@ -27,7 +27,7 @@ func VerifyHandler(c *gin.Context) {
 	useProxy := body.Proxy != nil && *body.Proxy
 	isStrict := body.Strict == nil || *body.Strict // Default to strict true
 
-	res, err := providers.DefaultRegistry.VerifyReceipt(c.Request.Context(), receiptStr, body.Expected, body.DefaultVerification, services.ReceiptRequestOptions{Proxy: useProxy})
+	res, err := providers.DefaultRegistry.VerifyReceipt(c.Request.Context(), receiptStr, body.Provider, body.Expected, body.DefaultVerification, services.ReceiptRequestOptions{Proxy: useProxy})
 	if err != nil {
 		services.Metrics.RecordVerification(false)
 		status := utils.GetHTTPStatus(err)

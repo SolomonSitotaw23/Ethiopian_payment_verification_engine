@@ -48,6 +48,7 @@ type ExpectedDataRequest struct {
 
 type VerifyRequestBody struct {
 	Receipt             json.RawMessage      `json:"receipt" binding:"required"`
+	Provider            string               `json:"provider,omitempty"`
 	Expected            *ExpectedDataRequest `json:"expected,omitempty"`
 	DefaultVerification VerificationFlags    `json:"defaultVerification"`
 	Strict              *bool                `json:"strict,omitempty"`
