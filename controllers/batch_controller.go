@@ -12,12 +12,6 @@ import (
 	"payment_verifier/services"
 )
 
-type AsyncBatchResponse struct {
-	Message     string `json:"message"`
-	Total       int    `json:"total"`
-	CallbackURL string `json:"callbackUrl"`
-}
-
 func BatchVerifyHandler(c *gin.Context) {
 	var body models.VerifyRequestBody
 	if err := c.ShouldBindJSON(&body); err != nil {
@@ -34,14 +28,18 @@ func BatchVerifyHandler(c *gin.Context) {
 	useProxy := body.Proxy != nil && *body.Proxy
 	ctx := c.Request.Context()
 
-	processor := func(item string) (string, error) {
-		validID, err := providers.DefaultRegistry.VerifyReceipt(ctx, item, body.DefaultVerification, services.ReceiptRequestOptions{Proxy: useProxy})
+	processor := func(item string) (*models.DetailedVerifyResponse, error) {
+		res, err := providers.DefaultRegistry.VerifyReceipt(ctx, item, body.Expected, body.DefaultVerification, services.ReceiptRequestOptions{Proxy: useProxy})
 		if err != nil {
 			services.Metrics.RecordVerification(false)
-			return "", err
+			return nil, err
 		}
-		services.Metrics.RecordVerification(true)
-		return validID, nil
+		if res.Status == "valid" {
+			services.Metrics.RecordVerification(true)
+		} else {
+			services.Metrics.RecordVerification(false)
+		}
+		return res, nil
 	}
 
 	callbackURL := strings.TrimSpace(body.CallbackURL)
@@ -52,7 +50,7 @@ func BatchVerifyHandler(c *gin.Context) {
 			services.SendWebhookCallback(callbackURL, results)
 		}()
 
-		c.JSON(http.StatusAccepted, AsyncBatchResponse{
+		c.JSON(http.StatusAccepted, models.AsyncBatchResponse{
 			Message:     "Batch processing started asynchronously. Verification result will be sent to callbackUrl.",
 			Total:       len(receipts),
 			CallbackURL: callbackURL,

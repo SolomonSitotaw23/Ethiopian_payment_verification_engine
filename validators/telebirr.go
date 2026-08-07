@@ -13,29 +13,21 @@ import (
 )
 
 var whitespaceRegex = regexp.MustCompile(`\s+`)
+var regexpBirr = regexp.MustCompile(`(?i)Birr`)
 
 func normalizeStr(str string) string {
 	return strings.ToLower(strings.TrimSpace(whitespaceRegex.ReplaceAllString(str, " ")))
 }
 
-func compareAmount(expected, parsed string) bool {
-	expNum, expErr := strconv.ParseFloat(strings.TrimSpace(expected), 64)
-	prsNum, prsErr := strconv.ParseFloat(strings.TrimSpace(parsed), 64)
-	if expErr != nil || prsErr != nil {
-		return strings.TrimSpace(expected) == strings.TrimSpace(parsed)
-	}
-	return expNum == prsNum
-}
-
-func VerifyTelebirr(rawHTML string, flags models.VerificationFlags) (bool, error) {
+func VerifyTelebirrDetailed(receiptID, rawHTML string, reqExpected *models.ExpectedDataRequest, flags models.VerificationFlags) (*models.DetailedVerifyResponse, error) {
 	doc, err := goquery.NewDocumentFromReader(strings.NewReader(rawHTML))
 	if err != nil {
-		return false, utils.NewValidationError("Invalid HTML content")
+		return nil, utils.NewValidationError("Invalid HTML content")
 	}
 
 	divText := strings.TrimSpace(doc.Find("div").Text())
 	if strings.Contains(divText, "This request is not correct") {
-		return false, utils.NewNotFoundError("Receipt not found or invalid")
+		return nil, utils.NewNotFoundError("Receipt not found or invalid")
 	}
 
 	accountAndName := doc.Find("#paid_reference_number").Text()
@@ -123,22 +115,32 @@ func VerifyTelebirr(rawHTML string, flags models.VerificationFlags) (bool, error
 		date = findColumnValueFromHeader(invoiceTable, "Payment date")
 	}
 
-	amountFromTable := strings.TrimSpace(regexp.MustCompile(`(?i)Birr`).ReplaceAllString(amountRaw, ""))
-
+	amountFromTable := strings.TrimSpace(regexpBirr.ReplaceAllString(amountRaw, ""))
 	status := ""
 	if statusTable != nil {
 		status = findAdjacentValue(statusTable, "transaction status")
 	}
 
-	parsedData := models.TelebirrParsedData{
-		Amount:        amountFromTable,
-		Status:        status,
+	parsedAmt, _ := strconv.ParseFloat(amountFromTable, 64)
+
+	parsedData := models.ParsedReceiptData{
+		Amount:        parsedAmt,
 		RecipientName: name,
-		Date:          date,
 		AccountNumber: accountNumber,
+		Date:          date,
+		Status:        status,
 	}
 
-	expected := config.Config.Telebirr.Expected
+	expected := utils.MergeExpectedData(reqExpected, config.Config.Telebirr.Expected)
+
+	checks := models.VerificationCheckResults{
+		AmountMatched:        true,
+		RecipientNameMatched: true,
+		AccountNumberMatched: true,
+		DateMatched:          true,
+		StatusMatched:        true,
+	}
+	mismatches := make([]string, 0)
 
 	shouldCheck := func(fieldFlag *bool) bool {
 		if flags.IsDefault {
@@ -149,75 +151,75 @@ func VerifyTelebirr(rawHTML string, flags models.VerificationFlags) (bool, error
 
 	// 1. Amount
 	if shouldCheck(flags.Amount) {
-		if expected.Amount == "" {
-			return false, utils.NewValidationError("No expected data for \"amount\", failing verification.")
-		}
-		if parsedData.Amount == "" {
-			return false, utils.NewValidationError("No parsed data for \"amount\", failing verification.")
-		}
-		if !compareAmount(expected.Amount, parsedData.Amount) {
-			return false, utils.NewValidationError(fmt.Sprintf("Mismatch on amount. Expected: %s, Actual: %s", expected.Amount, parsedData.Amount))
+		matched, errMsg := utils.CompareAmountFlexible(expected, amountFromTable)
+		if !matched {
+			checks.AmountMatched = false
+			mismatches = append(mismatches, errMsg)
 		}
 	}
 
 	// 2. Status
 	if shouldCheck(flags.Status) {
-		if expected.Status == "" {
-			return false, utils.NewValidationError("No expected data for \"status\", failing verification.")
-		}
-		if parsedData.Status == "" {
-			return false, utils.NewValidationError("No parsed data for \"status\", failing verification.")
-		}
-		if strings.TrimSpace(expected.Status) != strings.TrimSpace(parsedData.Status) {
-			return false, utils.NewValidationError(fmt.Sprintf("Mismatch on status. Expected: %s, Actual: %s", expected.Status, parsedData.Status))
+		if expected.Status != "" && strings.TrimSpace(expected.Status) != strings.TrimSpace(parsedData.Status) {
+			checks.StatusMatched = false
+			mismatches = append(mismatches, fmt.Sprintf("Mismatch on status. Expected: %s, Actual: %s", expected.Status, parsedData.Status))
 		}
 	}
 
 	// 3. Recipient Name
 	if shouldCheck(flags.RecipientName) {
-		if expected.RecipientName == "" {
-			return false, utils.NewValidationError("No expected data for \"recipientName\", failing verification.")
-		}
-		if parsedData.RecipientName == "" {
-			return false, utils.NewValidationError("No parsed data for \"recipientName\", failing verification.")
-		}
-		if strings.TrimSpace(expected.RecipientName) != strings.TrimSpace(parsedData.RecipientName) {
-			return false, utils.NewValidationError(fmt.Sprintf("Mismatch on recipientName. Expected: %s, Actual: %s", expected.RecipientName, parsedData.RecipientName))
+		if expected.RecipientName != "" && strings.TrimSpace(expected.RecipientName) != strings.TrimSpace(parsedData.RecipientName) {
+			checks.RecipientNameMatched = false
+			mismatches = append(mismatches, fmt.Sprintf("Mismatch on recipientName. Expected: %s, Actual: %s", expected.RecipientName, parsedData.RecipientName))
 		}
 	}
 
 	// 4. Account Number
 	if shouldCheck(flags.AccountNumber) {
-		if expected.AccountNumber == "" {
-			return false, utils.NewValidationError("No expected data for \"accountNumber\", failing verification.")
-		}
-		if parsedData.AccountNumber == "" {
-			return false, utils.NewValidationError("No parsed data for \"accountNumber\", failing verification.")
-		}
-		if strings.TrimSpace(expected.AccountNumber) != strings.TrimSpace(parsedData.AccountNumber) {
-			return false, utils.NewValidationError(fmt.Sprintf("Mismatch on accountNumber. Expected: %s, Actual: %s", expected.AccountNumber, parsedData.AccountNumber))
+		if expected.RecipientAccount != "" && strings.TrimSpace(expected.RecipientAccount) != strings.TrimSpace(parsedData.AccountNumber) {
+			checks.AccountNumberMatched = false
+			mismatches = append(mismatches, fmt.Sprintf("Mismatch on accountNumber. Expected: %s, Actual: %s", expected.RecipientAccount, parsedData.AccountNumber))
 		}
 	}
 
 	// 5. Date
 	if shouldCheck(flags.Date) {
 		if parsedData.Date == "" {
-			return false, utils.NewValidationError("No parsed data for date")
-		}
-		dateParts := strings.Split(parsedData.Date, " ")
-		if len(dateParts) > 0 {
-			dParts := strings.Split(dateParts[0], "-")
-			if len(dParts) >= 3 {
-				_, month, year := dParts[0], dParts[1], dParts[2]
-				if expected.PaymentYear != "" && year != expected.PaymentYear {
-					return false, utils.NewValidationError(fmt.Sprintf("Year mismatch. Expected: %s, Actual: %s", expected.PaymentYear, year))
-				}
-				if expected.PaymentMonth != "" && month != expected.PaymentMonth {
-					return false, utils.NewValidationError(fmt.Sprintf("Month mismatch. Expected: %s, Actual: %s", expected.PaymentMonth, month))
+			checks.DateMatched = false
+			mismatches = append(mismatches, "No parsed data for date")
+		} else {
+			dateParts := strings.Split(parsedData.Date, " ")
+			if len(dateParts) > 0 {
+				dParts := strings.Split(dateParts[0], "-")
+				if len(dParts) >= 3 {
+					_, month, year := dParts[0], dParts[1], dParts[2]
+					if expected.PaymentYear != "" && year != expected.PaymentYear {
+						checks.DateMatched = false
+						mismatches = append(mismatches, fmt.Sprintf("Year mismatch. Expected: %s, Actual: %s", expected.PaymentYear, year))
+					}
+					if expected.PaymentMonth != "" && month != expected.PaymentMonth {
+						checks.DateMatched = false
+						mismatches = append(mismatches, fmt.Sprintf("Month mismatch. Expected: %s, Actual: %s", expected.PaymentMonth, month))
+					}
 				}
 			}
 		}
 	}
 
-	return true, nil
+	resStatus := "valid"
+	msg := fmt.Sprintf("The receipt '%s' is a valid receipt.", receiptID)
+	if len(mismatches) > 0 {
+		resStatus = "mismatch"
+		msg = mismatches[0]
+	}
+
+	return &models.DetailedVerifyResponse{
+		Status:     resStatus,
+		ReceiptID:  receiptID,
+		Provider:   "Telebirr",
+		Message:    msg,
+		Parsed:     parsedData,
+		Checks:     checks,
+		Mismatches: mismatches,
+	}, nil
 }

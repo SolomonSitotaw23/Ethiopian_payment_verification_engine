@@ -35,9 +35,22 @@ func (vf *VerificationFlags) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type ExpectedDataRequest struct {
+	Amount           interface{} `json:"amount,omitempty"`
+	MinAmount        interface{} `json:"minAmount,omitempty"`
+	MaxAmount        interface{} `json:"maxAmount,omitempty"`
+	RecipientAccount string      `json:"recipientAccount,omitempty"`
+	RecipientName    string      `json:"recipientName,omitempty"`
+	PaymentYear      string      `json:"paymentYear,omitempty"`
+	PaymentMonth     string      `json:"paymentMonth,omitempty"`
+	Status           string      `json:"status,omitempty"`
+}
+
 type VerifyRequestBody struct {
-	Receipt             json.RawMessage   `json:"receipt" binding:"required"`
-	DefaultVerification VerificationFlags `json:"defaultVerification"`
-	Proxy               *bool             `json:"proxy,omitempty"`
-	CallbackURL         string            `json:"callbackUrl,omitempty"`
+	Receipt             json.RawMessage      `json:"receipt" binding:"required"`
+	Expected            *ExpectedDataRequest `json:"expected,omitempty"`
+	DefaultVerification VerificationFlags    `json:"defaultVerification"`
+	Strict              *bool                `json:"strict,omitempty"`
+	Proxy               *bool                `json:"proxy,omitempty"`
+	CallbackURL         string               `json:"callbackUrl,omitempty"`
 }

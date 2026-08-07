@@ -2,7 +2,6 @@ package controllers
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -26,7 +25,9 @@ func VerifyHandler(c *gin.Context) {
 	}
 
 	useProxy := body.Proxy != nil && *body.Proxy
-	validID, err := providers.DefaultRegistry.VerifyReceipt(c.Request.Context(), receiptStr, body.DefaultVerification, services.ReceiptRequestOptions{Proxy: useProxy})
+	isStrict := body.Strict == nil || *body.Strict // Default to strict true
+
+	res, err := providers.DefaultRegistry.VerifyReceipt(c.Request.Context(), receiptStr, body.Expected, body.DefaultVerification, services.ReceiptRequestOptions{Proxy: useProxy})
 	if err != nil {
 		services.Metrics.RecordVerification(false)
 		status := utils.GetHTTPStatus(err)
@@ -34,8 +35,22 @@ func VerifyHandler(c *gin.Context) {
 		return
 	}
 
-	services.Metrics.RecordVerification(true)
-	c.JSON(http.StatusOK, models.SingleVerifyResponse{
-		Message: fmt.Sprintf("The receipt '%s' is a valid receipt.", validID),
-	})
+	if res.Status == "valid" {
+		services.Metrics.RecordVerification(true)
+		c.JSON(http.StatusOK, res)
+		return
+	}
+
+	// res.Status == "mismatch"
+	services.Metrics.RecordVerification(false)
+	if isStrict {
+		c.JSON(http.StatusBadRequest, models.ErrorResponse{
+			Error:   res.Message,
+			Details: res,
+		})
+		return
+	}
+
+	// Non-strict mode: 200 OK with mismatch details
+	c.JSON(http.StatusOK, res)
 }

@@ -33,26 +33,19 @@ func (p *BOAProvider) CanHandle(input string) bool {
 	return id != ""
 }
 
-func (p *BOAProvider) Verify(ctx context.Context, input string, flags models.VerificationFlags, opts services.ReceiptRequestOptions) (string, error) {
+func (p *BOAProvider) Verify(ctx context.Context, input string, reqExpected *models.ExpectedDataRequest, flags models.VerificationFlags, opts services.ReceiptRequestOptions) (*models.DetailedVerifyResponse, error) {
 	id := p.ParseID(input)
 	if id == "" {
-		return "", utils.NewAppError("Invalid BOA Receipt ID", 400)
+		return nil, utils.NewAppError("Invalid BOA Receipt ID", 400)
 	}
 
 	rawRes, err := services.GetReceiptData(id, services.ReceiptRequestOptions{})
 	if err != nil {
-		return "", err
+		return nil, err
 	}
 	if rawRes == nil || rawRes.BoaData == nil {
-		return "", utils.NewValidationError("receipt '" + input + "' is NOT a valid receipt")
+		return nil, utils.NewValidationError("receipt '" + input + "' is NOT a valid receipt")
 	}
 
-	valid, err := validators.VerifyBOA(rawRes.BoaData, flags)
-	if err != nil {
-		return "", err
-	}
-	if valid {
-		return id, nil
-	}
-	return "", utils.NewValidationError("receipt '" + input + "' is NOT a valid receipt")
+	return validators.VerifyBOADetailed(id, rawRes.BoaData, reqExpected, flags)
 }

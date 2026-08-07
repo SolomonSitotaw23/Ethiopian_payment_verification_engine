@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"payment_verifier/config"
@@ -45,55 +46,60 @@ func extractRegexField(text string, re *regexp.Regexp) string {
 	return ""
 }
 
-func VerifyCBE(res *services.ReceiptDataResult, flags models.VerificationFlags) (bool, error) {
-	var parsedData models.CbePdfParsedData
+func VerifyCBEDetailed(receiptID string, res *services.ReceiptDataResult, reqExpected *models.ExpectedDataRequest, flags models.VerificationFlags) (*models.DetailedVerifyResponse, error) {
+	var rawAmt, dateStr, accountNo, recipientName string
 
 	if res.CbeMB != nil {
 		mb := res.CbeMB
-		var formattedDate string
 		if len(mb.DateTimes) > 0 {
 			datePart := strings.Split(mb.DateTimes[0], "T")[0]
 			dParts := strings.Split(datePart, "-")
 			if len(dParts) == 3 {
 				year, month, day := dParts[0], dParts[1], dParts[2]
-				formattedDate = fmt.Sprintf("%s/%s/%s", month, day, year)
+				dateStr = fmt.Sprintf("%s/%s/%s", month, day, year)
 			}
 		}
-
-		amt := mb.DebitAmount
-		if amt != "" {
-			amt = strings.Split(amt, ".")[0]
+		rawAmt = mb.DebitAmount
+		if rawAmt != "" {
+			rawAmt = strings.Split(rawAmt, ".")[0]
 		}
-
-		parsedData = models.CbePdfParsedData{
-			Amount:        amt,
-			Date:          formattedDate,
-			AccountNumber: mb.CreditAccountNo,
-			RecipientName: mb.CreditAccountHolder,
-		}
+		accountNo = mb.CreditAccountNo
+		recipientName = mb.CreditAccountHolder
 	} else if len(res.CbePDFBytes) > 0 {
 		text, err := extractPdfText(res.CbePDFBytes)
 		if err != nil {
-			return false, utils.NewValidationError("Failed to parse CBE PDF receipt text")
+			return nil, utils.NewValidationError("Failed to parse CBE PDF receipt text")
 		}
-
-		rawAmt := extractRegexField(text, cbeAmountRegex)
-		amt := ""
-		if rawAmt != "" {
-			amt = strings.Split(rawAmt, ".")[0]
+		pdfAmt := extractRegexField(text, cbeAmountRegex)
+		if pdfAmt != "" {
+			rawAmt = strings.Split(pdfAmt, ".")[0]
 		}
-
-		parsedData = models.CbePdfParsedData{
-			Amount:        amt,
-			Date:          extractRegexField(text, cbeDateRegex),
-			AccountNumber: extractRegexField(text, cbeAccountRegex),
-			RecipientName: extractRegexField(text, cbeRecipientRegex),
-		}
+		dateStr = extractRegexField(text, cbeDateRegex)
+		accountNo = extractRegexField(text, cbeAccountRegex)
+		recipientName = extractRegexField(text, cbeRecipientRegex)
 	} else {
-		return false, utils.NewValidationError("No valid CBE receipt data found")
+		return nil, utils.NewValidationError("No valid CBE receipt data found")
 	}
 
-	expected := config.Config.CBE.Expected
+	parsedAmt, _ := strconv.ParseFloat(rawAmt, 64)
+
+	parsedData := models.ParsedReceiptData{
+		Amount:        parsedAmt,
+		RecipientName: recipientName,
+		AccountNumber: accountNo,
+		Date:          dateStr,
+	}
+
+	expected := utils.MergeExpectedData(reqExpected, config.Config.CBE.Expected)
+
+	checks := models.VerificationCheckResults{
+		AmountMatched:        true,
+		RecipientNameMatched: true,
+		AccountNumberMatched: true,
+		DateMatched:          true,
+		StatusMatched:        true,
+	}
+	mismatches := make([]string, 0)
 
 	shouldCheck := func(fieldFlag *bool) bool {
 		if flags.IsDefault {
@@ -105,58 +111,63 @@ func VerifyCBE(res *services.ReceiptDataResult, flags models.VerificationFlags) 
 	// 1. Date
 	if shouldCheck(flags.Date) {
 		if parsedData.Date == "" {
-			return false, utils.NewValidationError("No parsed data for date")
-		}
-		dParts := strings.Split(parsedData.Date, "/")
-		if len(dParts) == 3 {
-			month, _, year := dParts[0], dParts[1], dParts[2]
-			if expected.PaymentYear != "" && year != expected.PaymentYear {
-				return false, utils.NewValidationError(fmt.Sprintf("Year mismatch. Expected: %s, Actual: %s", expected.PaymentYear, year))
-			}
-			if expected.PaymentMonth != "" && month != expected.PaymentMonth {
-				return false, utils.NewValidationError(fmt.Sprintf("Month mismatch. Expected: %s, Actual: %s", expected.PaymentMonth, month))
+			checks.DateMatched = false
+			mismatches = append(mismatches, "No parsed data for date")
+		} else {
+			dParts := strings.Split(parsedData.Date, "/")
+			if len(dParts) == 3 {
+				month, _, year := dParts[0], dParts[1], dParts[2]
+				if expected.PaymentYear != "" && year != expected.PaymentYear {
+					checks.DateMatched = false
+					mismatches = append(mismatches, fmt.Sprintf("Year mismatch. Expected: %s, Actual: %s", expected.PaymentYear, year))
+				}
+				if expected.PaymentMonth != "" && month != expected.PaymentMonth {
+					checks.DateMatched = false
+					mismatches = append(mismatches, fmt.Sprintf("Month mismatch. Expected: %s, Actual: %s", expected.PaymentMonth, month))
+				}
 			}
 		}
 	}
 
 	// 2. Amount
 	if shouldCheck(flags.Amount) {
-		if expected.Amount == "" {
-			return false, utils.NewValidationError("No expected data for \"amount\", failing verification.")
-		}
-		if parsedData.Amount == "" {
-			return false, utils.NewValidationError("No parsed data for \"amount\", failing verification.")
-		}
-		if !compareAmount(expected.Amount, parsedData.Amount) {
-			return false, utils.NewValidationError(fmt.Sprintf("Mismatch on amount. Expected: %s, Actual: %s", expected.Amount, parsedData.Amount))
+		matched, errMsg := utils.CompareAmountFlexible(expected, rawAmt)
+		if !matched {
+			checks.AmountMatched = false
+			mismatches = append(mismatches, errMsg)
 		}
 	}
 
 	// 3. Recipient Name
 	if shouldCheck(flags.RecipientName) {
-		if expected.RecipientName == "" {
-			return false, utils.NewValidationError("No expected data for \"recipientName\", failing verification.")
-		}
-		if parsedData.RecipientName == "" {
-			return false, utils.NewValidationError("No parsed data for \"recipientName\", failing verification.")
-		}
-		if strings.ToLower(strings.TrimSpace(expected.RecipientName)) != strings.ToLower(strings.TrimSpace(parsedData.RecipientName)) {
-			return false, utils.NewValidationError(fmt.Sprintf("Mismatch on recipientName. Expected: %s, Actual: %s", expected.RecipientName, parsedData.RecipientName))
+		if expected.RecipientName != "" && strings.ToLower(strings.TrimSpace(expected.RecipientName)) != strings.ToLower(strings.TrimSpace(parsedData.RecipientName)) {
+			checks.RecipientNameMatched = false
+			mismatches = append(mismatches, fmt.Sprintf("Mismatch on recipientName. Expected: %s, Actual: %s", expected.RecipientName, parsedData.RecipientName))
 		}
 	}
 
 	// 4. Account Number
 	if shouldCheck(flags.AccountNumber) {
-		if expected.AccountNumber == "" {
-			return false, utils.NewValidationError("No expected data for \"accountNumber\", failing verification.")
-		}
-		if parsedData.AccountNumber == "" {
-			return false, utils.NewValidationError("No expected data for \"accountNumber\", failing verification.")
-		}
-		if strings.ToLower(strings.TrimSpace(expected.AccountNumber)) != strings.ToLower(strings.TrimSpace(parsedData.AccountNumber)) {
-			return false, utils.NewValidationError(fmt.Sprintf("Mismatch on accountNumber. Expected: %s, Actual: %s", expected.AccountNumber, parsedData.AccountNumber))
+		if expected.RecipientAccount != "" && strings.ToLower(strings.TrimSpace(expected.RecipientAccount)) != strings.ToLower(strings.TrimSpace(parsedData.AccountNumber)) {
+			checks.AccountNumberMatched = false
+			mismatches = append(mismatches, fmt.Sprintf("Mismatch on accountNumber. Expected: %s, Actual: %s", expected.RecipientAccount, parsedData.AccountNumber))
 		}
 	}
 
-	return true, nil
+	resStatus := "valid"
+	msg := fmt.Sprintf("The receipt '%s' is a valid receipt.", receiptID)
+	if len(mismatches) > 0 {
+		resStatus = "mismatch"
+		msg = mismatches[0]
+	}
+
+	return &models.DetailedVerifyResponse{
+		Status:     resStatus,
+		ReceiptID:  receiptID,
+		Provider:   "CBE",
+		Message:    msg,
+		Parsed:     parsedData,
+		Checks:     checks,
+		Mismatches: mismatches,
+	}, nil
 }

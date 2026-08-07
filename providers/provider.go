@@ -15,7 +15,7 @@ type Provider interface {
 	Name() string
 	ParseID(input string) string
 	CanHandle(input string) bool
-	Verify(ctx context.Context, input string, flags models.VerificationFlags, opts services.ReceiptRequestOptions) (string, error)
+	Verify(ctx context.Context, input string, reqExpected *models.ExpectedDataRequest, flags models.VerificationFlags, opts services.ReceiptRequestOptions) (*models.DetailedVerifyResponse, error)
 }
 
 type ProviderRegistry struct {
@@ -53,10 +53,10 @@ func (r *ProviderRegistry) FindProvider(input string) (Provider, string) {
 	return nil, ""
 }
 
-func (r *ProviderRegistry) VerifyReceipt(ctx context.Context, input string, flags models.VerificationFlags, opts services.ReceiptRequestOptions) (string, error) {
+func (r *ProviderRegistry) VerifyReceipt(ctx context.Context, input string, reqExpected *models.ExpectedDataRequest, flags models.VerificationFlags, opts services.ReceiptRequestOptions) (*models.DetailedVerifyResponse, error) {
 	provider, id := r.FindProvider(input)
 	if provider == nil || id == "" {
-		return "", utils.NewValidationError(fmt.Sprintf("receipt '%s' is NOT a valid receipt", input))
+		return nil, utils.NewValidationError(fmt.Sprintf("receipt '%s' is NOT a valid receipt", input))
 	}
-	return provider.Verify(ctx, input, flags, opts)
+	return provider.Verify(ctx, input, reqExpected, flags, opts)
 }

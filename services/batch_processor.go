@@ -7,7 +7,7 @@ import (
 	"payment_verifier/models"
 )
 
-type BatchItemProcessor func(item string) (string, error)
+type BatchItemProcessor func(item string) (*models.DetailedVerifyResponse, error)
 
 func ProcessBatch(items []string, processor BatchItemProcessor, concurrency int) models.BatchVerifyResponse {
 	if concurrency <= 0 {
@@ -19,7 +19,7 @@ func ProcessBatch(items []string, processor BatchItemProcessor, concurrency int)
 	var wg sync.WaitGroup
 
 	var mu sync.Mutex
-	validList := make([]string, 0, total)
+	validList := make([]models.DetailedVerifyResponse, 0, total)
 	failedList := make([]models.BatchVerifyFailedItem, 0, total)
 
 	for _, item := range items {
@@ -41,8 +41,16 @@ func ProcessBatch(items []string, processor BatchItemProcessor, concurrency int)
 					ReceiptID: it,
 					Error:     err.Error(),
 				})
-			} else if res != "" {
-				validList = append(validList, res)
+			} else if res != nil {
+				if res.Status == "valid" {
+					validList = append(validList, *res)
+				} else {
+					failedList = append(failedList, models.BatchVerifyFailedItem{
+						ReceiptID: it,
+						Error:     res.Message,
+						Details:   res,
+					})
+				}
 			}
 		}(item)
 	}
